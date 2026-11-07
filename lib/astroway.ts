@@ -68,7 +68,11 @@ const SIGNS = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', '
 const ANGLES = ['ascendant', 'mc', 'vertex', 'descendant', 'ic'];
 const signOf = (lon: number) => {
   const l = ((lon % 360) + 360) % 360;
-  return { sign: SIGNS[Math.floor(l / 30)], degree: Math.round((l % 30) * 100) / 100 };
+  // Degrees and minutes as text: given 21.62 a model writes 21°62'.
+  const totalMin = Math.floor((l % 30) * 60);
+  const d = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return { sign: SIGNS[Math.floor(l / 30)], degree: `${d}°${String(m).padStart(2, '0')}′` };
 };
 
 // Models get longitude-to-sign arithmetic wrong (Sun at 56.26 came back as Gemini, it is Taurus 26),
