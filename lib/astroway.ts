@@ -64,12 +64,53 @@ export async function listTools(client: Client): Promise<AstroTool[]> {
 
 const MAX_RESULT_CHARS = 16_000;
 
+const SIGNS = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'];
+const ANGLES = ['ascendant', 'mc', 'vertex', 'descendant', 'ic'];
+const signOf = (lon: number) => {
+  const l = ((lon % 360) + 360) % 360;
+  return { sign: SIGNS[Math.floor(l / 30)], degree: Math.round((l % 30) * 100) / 100 };
+};
+
+// Models get longitude-to-sign arithmetic wrong (Sun at 56.26 came back as Gemini, it is Taurus 26),
+// so the sign is added to the result here and the model only has to read it.
+function addSigns(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(addSigns);
+  if (!v || typeof v !== 'object') return v;
+  const o: Record<string, unknown> = {};
+  for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+    o[k] = addSigns(x);
+    if (k === 'cusps' && Array.isArray(x) && x.every((c) => typeof c === 'number')) {
+      o.cuspSigns = (x as number[]).map((c) => signOf(c).sign);
+    }
+    if (typeof x === 'number' && ANGLES.includes(k)) {
+      const s = signOf(x);
+      o[`${k}Sign`] = s.sign;
+      o[`${k}DegreeInSign`] = s.degree;
+    }
+  }
+  if (typeof o.longitude === 'number' && o.sign === undefined) {
+    const s = signOf(o.longitude);
+    o.sign = s.sign;
+    o.degreeInSign = s.degree;
+  }
+  return o;
+}
+
+function withSigns(text: string): string {
+  try {
+    return JSON.stringify(addSigns(JSON.parse(text)));
+  } catch {
+    return text;
+  }
+}
+
 export async function callTool(client: Client, name: string, args: Record<string, unknown>) {
   const res = await client.callTool({ name, arguments: args });
   const content = Array.isArray(res.content) ? res.content : [];
   let text = content
     .map((c: { type: string; text?: string }) => (c.type === 'text' ? c.text ?? '' : `[${c.type} omitted]`))
     .join('\n');
+  if (!res.isError) text = withSigns(text);
   // A result past this size costs more model tokens than it earns; the model is told to ask with `fields`.
   if (text.length > MAX_RESULT_CHARS) {
     text = text.slice(0, MAX_RESULT_CHARS) + `\n[truncated at ${MAX_RESULT_CHARS} characters: call again with "fields" naming only the paths you need]`;

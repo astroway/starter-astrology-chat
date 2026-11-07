@@ -10,7 +10,7 @@ Birth data:
 
 Keep results small:
 - Pass "fields" with only the paths you need and "precision": 2. For a natal chart, "planets.name,planets.longitude,planets.isRetrograde,houses.ascendant,houses.mc,houses.cusps,aspects.planet1,aspects.planet2,aspects.type.name" is usually enough. If a result lists paths under "_fields_unmatched", those paths do not exist; do not call again just for them.
-- A sign is longitude / 30: 0 Aries, 1 Taurus, and so on; degree in sign is longitude mod 30.
+- Every longitude in a result comes with its sign and degreeInSign, and the angles with ascendantSign, mcSign and their degrees. Quote those; never work a sign out from a longitude yourself.
 
 Cost: each tool description ends with its price in credits. Do not call the same tool twice for the same input, and ask before anything marked Heavy or Premium.
 
