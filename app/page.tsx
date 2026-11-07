@@ -49,7 +49,11 @@ export default function Page() {
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
 
-  useEffect(() => end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), [turns, busy]);
+  // A block, not an expression: newer Chrome returns a Promise from scrollIntoView, and React
+  // calls whatever an effect returns as its cleanup, which crashed the page on the first message.
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [turns, busy]);
 
   async function send(text: string) {
     const content = text.trim();
