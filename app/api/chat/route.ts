@@ -25,6 +25,21 @@ function limited(ip: string) {
 
 type ChatIn = { role: 'user' | 'assistant'; content: string };
 
+// Some models send "UTC+3" for a place. An offset ignores summer time and history, so the chart would be wrong.
+const OFFSET = /^(?:utc|gmt)?\s*[+-]\s*\d{1,2}(?::?\d{2})?$/i;
+function offsetTimezone(args: Record<string, unknown>): string | null {
+  for (const [k, v] of Object.entries(args)) {
+    if (typeof v === 'string' && /timezone|tz$/i.test(k) && OFFSET.test(v.trim())) {
+      return `"${k}": "${v}" is a UTC offset. Send an IANA zone name for the place, such as Europe/Kyiv, or "auto".`;
+    }
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      const nested = offsetTimezone(v as Record<string, unknown>);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
 export async function POST(req: Request) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
   if (limited(ip)) {
@@ -63,17 +78,27 @@ export async function POST(req: Request) {
       for (const tc of msg.tool_calls) {
         const started = Date.now();
         let result: { ok: boolean; text: string };
+        let args: Record<string, unknown> = {};
+        try {
+          args = JSON.parse(tc.function.arguments || '{}');
+        } catch {
+          args = {};
+        }
+        const tzError = offsetTimezone(args);
         if (!price.has(tc.function.name)) {
           result = { ok: false, text: `Unknown tool ${tc.function.name}` };
+        } else if (tzError) {
+          // Refused before the call, so no credits are spent; the model retries with a zone name.
+          result = { ok: false, text: tzError };
         } else {
           try {
-            result = await callTool(client, tc.function.name, JSON.parse(tc.function.arguments || '{}'));
+            result = await callTool(client, tc.function.name, args);
           } catch (e) {
             result = { ok: false, text: e instanceof Error ? e.message : String(e) };
           }
         }
         calls.push({ name: tc.function.name, credits: price.get(tc.function.name) ?? null, ok: result.ok, ms: Date.now() - started });
-        console.log(`[astroway] ${tc.function.name} ${tc.function.arguments} ${result.ok ? 'ok' : `error: ${result.text.slice(0, 300)}`} ${Date.now() - started}ms`);
+        console.log(`[astroway] ${tc.function.name} ${JSON.stringify(args)} ${result.ok ? 'ok' : `error: ${result.text.slice(0, 300)}`} ${Date.now() - started}ms`);
         messages.push({ role: 'tool', tool_call_id: tc.id, content: result.text });
       }
     }

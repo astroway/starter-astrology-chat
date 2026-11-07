@@ -29,6 +29,7 @@ Get an AstroWay key at [api.astroway.info/dashboard/sign-up](https://api.astrowa
 | `ASTROWAY_MCP_URL` | no | Default `https://mcp.astroway.info/mcp/core`. Point it at another subject, e.g. `/mcp/vedic` or `/mcp/tarot`. The list is at [mcp.astroway.info/domains](https://mcp.astroway.info/domains). |
 | `ASTROWAY_TOOLS` | no | Comma-separated tool names the model may use, or `*` for every tool on that server. See below. |
 | `RATE_LIMIT_PER_HOUR` | no | Messages per hour per visitor address. Default 20, `0` turns it off. |
+| `BASE_PATH` | no | Serve the app under a subpath, e.g. `/demo/chat`. Read at build time, so set it before `npm run build`. |
 
 ## What it calls
 
